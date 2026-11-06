@@ -1,10 +1,104 @@
+# Server Monitor
+
+Server Monitor is a React dashboard and Python backend for checking websites, APIs, and Ubuntu servers.
+
+## Install and run locally
+
+Install Git, Python 3.10 or newer, and Node.js 22 LTS with npm. In PowerShell, run:
+
+```powershell
+git clone https://github.com/vijayragaw/server-monitor.git
+cd server-monitor
+Copy-Item config.example.xml config.xml
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r backend/requirements.txt
+npm.cmd ci
+```
+
+Copy the example configuration only on a fresh install. Set the real URLs and enable the applications you want to check. Set `diskPath="C:\"` if the watcher runs on Windows.
+
+Start the backend from the project folder:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn backend.app:app --host 127.0.0.1 --port 8081 --workers 1
+```
+
+In a second terminal in the same folder, run `npm.cmd run dev`. Open [the local dashboard](http://127.0.0.1:5173/).
+
+## Build the frontend
+
+```powershell
+npm.cmd ci
+npm.cmd run build
+```
+
+The build writes static files to `dist/`. The deployment also needs `backend/` and `config.xml` beside `dist/`. Keep the real XML private because it can contain agent tokens.
+
+## Deploy privately on Ubuntu
+
+Build on your workstation and copy `dist/`, `backend/`, and your private `config.xml` to `~/server-monitor/` on Ubuntu. Alternatively, clone this repository there, copy the example XML, and run `npm ci` and `npm run build` with Node installed on that server.
+
+On Ubuntu, set `diskPath="/"` in the XML. Set each application URL to an address reachable from Ubuntu. A loopback URL points to the Ubuntu host itself. Install the Python dependencies under the account that will run the service:
+
+```bash
+cd ~/server-monitor
+sudo apt-get update
+sudo apt-get install -y python3-venv
+python3 -m venv .venv
+.venv/bin/python -m pip install -r backend/requirements.txt
+chmod 600 config.xml
+```
+
+Create `serve_dashboard.py` beside `config.xml` so one process serves both the API and the built dashboard:
+
+```python
+from fastapi.staticfiles import StaticFiles
+from backend.app import app
+
+app.mount("/", StaticFiles(directory="dist", html=True), name="dashboard")
+```
+
+Create `/etc/systemd/system/server-monitor.service` with the content below. Replace `ubuntu` and `/home/ubuntu/server-monitor` with the actual account and absolute project path. That account needs write access to the project directory for dashboard settings saves.
+
+```ini
+[Unit]
+Description=Server Monitor dashboard
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/server-monitor
+ExecStart=/home/ubuntu/server-monitor/.venv/bin/python -m uvicorn serve_dashboard:app --host 127.0.0.1 --port 5173 --workers 1
+Restart=on-failure
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now server-monitor
+curl --fail --silent --output /dev/null http://127.0.0.1:5173/api/settings
+```
+
+From your workstation, open an SSH tunnel and keep that terminal running. Replace `YOUR_SERVER` and the SSH username. Stop local Vite first if it occupies port 5173.
+
+```bash
+ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:5173:127.0.0.1:5173 ubuntu@YOUR_SERVER
+```
+
+Open [Server Monitor through the tunnel](http://127.0.0.1:5173/), then use **Check now** and verify your configured monitors. This setup uses SSH for access and binds the dashboard to loopback. The app has no built-in user login.
+
+After manually editing XML, run `sudo systemctl restart server-monitor`. Use `sudo journalctl -u server-monitor -n 40 --no-pager` to diagnose startup errors. To collect remote host metrics, follow the [Ubuntu agent setup](ubuntu-agent/README.md).
+
 ## Brand and environment overview
 
 The always-visible top overview groups configured monitors by brand and Testing, UAT and Production. Use Settings to assign a brand and environment to each application endpoint. Existing records without these fields remain Unassigned. Greentrends, Naturals and Innocare are brand suggestions; no endpoints or healthy sample readings are created for them. Missing environment rows show a dash. Multiple named projects can share a brand/environment and appear as separate rows.
 
 Status icons show success, warning, danger, unknown, disabled and not configured. Select a populated icon for details or an application name to open its detailed checks. Grouped columns show the most severe available result. The server strip measures only the local watcher server. Services, ports, SMS and version monitoring are not supplied by current probes.
 
-# Local settings
+## Local settings
 
 Open **Settings** in the dashboard to add/edit/remove applications, enable or disable apps and individual checks, and save refresh, table view, issue filter, charts, current notifications and local computer metrics preferences. Save applies changes to the next check without a backend restart. Cancel discards form edits.
 
@@ -14,24 +108,11 @@ For manual changes, stop the backend, edit `config.xml`, and restart it. Edit `<
 
 Disabled apps do not run checks. Disabled individual probes are skipped; Laravel health and diagnostics checks share endpoints, so an enabled sibling may still request the same endpoint and perform its server-side diagnostics. Disabling current notifications hides the findings menu; it does not send or suppress external alerts. No scheduler, database server or email sending is added by settings saves.
 
-The older implementation notes below describe the original XML/browser configuration and are superseded by this section for settings storage and app management.
-
-# Server Monitor — local watcher
-
-Only live checks are shown. Monitoring URLs and the polling interval are manually configured in `config.xml`. Restart the watcher backend after editing XML. This initial XML format supports one brand.
-
-## Start
-
-1. Install Python dependencies: `.venv\Scripts\python.exe -m pip install -r backend/requirements.txt` (create the virtual environment with `python -m venv .venv` first).
-2. Start backend: `.venv\Scripts\python.exe -m uvicorn backend.app:app --host 127.0.0.1 --port 8081 --workers 1`
-3. Run `npm install`, then `npm run dev` for the dashboard at http://127.0.0.1:5173.
-4. Keep Angular and Laravel running separately.
-
 Checks: Angular HTTP availability/response time, Laravel health/response time, MySQL status from Laravel, and verified TLS certificate expiry for website and API HTTPS URLs. HTTP URLs show SSL as not applicable. Website availability checks do not exercise Angular login or business workflows. Database probe uses SELECT 1 only.
 
 Certificates warn below 15 days and are critical below 5 days. Certificate validation remains enabled; invalid certificates are critical and network failures are unknown. The TLS probe checks the configured hostname; configure the final HTTPS URL when a site redirects to another hostname.
 
-No credentials are stored in this project. The local Laravel endpoint is restricted to loopback and the local Laravel environment. This development watcher is loopback-only and has no login yet. Checks run when the dashboard polls; an independent scheduler is a future step. No historical data is stored.
+The local Laravel endpoint is restricted to loopback and the local Laravel environment. This development watcher is loopback-only and has no login yet. Checks run when the dashboard polls; an independent scheduler is a future step. No historical data is stored.
 
 Validation: `npm run build` and `.venv\Scripts\python.exe -m pytest backend -q` (install pytest for tests).
 
@@ -40,7 +121,7 @@ Mail monitoring: optional mailHealthUrl in config.xml points to Laravel's loopba
 
 Additional diagnostics: diagnosticsUrl in XML points to the local Laravel /api/health/diagnostics endpoint. It tests cache with a unique temporary key, folder writability, database-backed default queue counts when supported, failed jobs in the last 24 hours, and current-day Laravel error entries (bounded to 20 MB per standard log file). Error messages and credentials are never returned. Unsupported queues or unavailable tables are unknown. Error counts include earlier failures today, not just active incidents. localMetrics=true and diskPath in XML enable CPU/RAM/disk/uptime for the watcher computer only; a remote Linux agent is still required for production machine metrics. Refresh controls are browser-local; default manual, presets or custom seconds, with one initial check on opening.
 
-Multi-application XML: add one <app> per application with unique id, name, backend, and optional siteUrl/healthUrl. backend=http checks HTTP status only (any technology); backend=json checks a JSON field (statusPath defaults to status, expectedValue defaults to ok); backend=laravel expects the existing database health contract and optionally mailHealthUrl/diagnosticsUrl. Apps can use entirely different hosts and ports. Only configured checks run. Restart backend after XML changes. Current configured apps are Billing local and Devtest online; no sample apps are shown. This is an incremental live overview, not completion of all security, alerts, remote-agent or screen requirements in the reference spec.
+Multi-application XML: add one <app> per application with unique id, name, backend, and optional siteUrl/healthUrl. backend=http checks HTTP status only (any technology); backend=json checks a JSON field (statusPath defaults to status, expectedValue defaults to ok); backend=laravel expects the existing database health contract and optionally mailHealthUrl/diagnosticsUrl. Apps can use entirely different hosts and ports. Only configured checks run. Restart backend after XML changes. This is an incremental live overview, not completion of all security, alerts, remote-agent or screen requirements in the reference spec.
 
 Manual tools: configure mailTestUrl and logDownloadUrl per Laravel app in XML. The UI sends email only on explicit submit, with recipient validation and a 6/minute Laravel throttle. Provider acceptance does not guarantee delivery. The manual POST requires a custom action header and rejects non-local browser origins. Log download exports current-day standard Laravel log entries with a 20 MB bound, omitting sensitive context and known credentials. Treat remaining log content as confidential. Database and SMTP details classify exceptions locally without exposing raw connection errors. These Laravel diagnostic routes remain local-environment/loopback only.
 
@@ -92,7 +173,3 @@ On the Ubuntu host, create `~/.config/server-monitor/direct.xml` for the SSH use
 Set only the sources you want. The SSH user needs read access to the configured logs and files. The MySQL option file is a private `[client]` file with the monitoring account's connection options, and the Ubuntu host needs the `mysql` client. The database probe runs `SELECT 1`. SMTP uses STARTTLS by default. Use `tls="implicit"` and the appropriate port for implicit TLS. Keep credentials on Ubuntu and outside the application repository.
 
 The Laravel error check and analysis read bounded tails of today's standard logs. Download in SSH mode exports a sanitized error summary. An optional `requestLog` path can point to an existing compatible JSONL timing file. Cache, queue and Laravel API health checks are not provided by the SSH probe.
-
-## Configuration for a fresh clone
-
-Copy `config.example.xml` to `config.xml` before starting the backend. Set the disk path and add your real applications and servers in the dashboard or XML. Keep the live `config.xml` and any legacy `settings.json` private.
