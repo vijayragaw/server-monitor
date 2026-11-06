@@ -148,6 +148,24 @@ Settings now includes a Servers tab with Ubuntu server name, agent URL, token, e
 
 See ubuntu-agent/README.md for installation and SSH tunnel/VPN setup. The installer defaults to loopback and does not modify firewall rules. No remote server has been installed or connected automatically. Saved agent tokens are kept in the local settings file, redacted from settings API responses, and preserved when the token field is left blank. Protect settings files and backups.
 
+## Laravel controller and API routes
+
+For Laravel HTTP monitoring, install `app/Http/Controllers/MonitorHealthController.php` and add the monitor routes to the Laravel application's `routes/api.php`. The Billing integration is available at [commit 740805b](https://dev.azure.com/mousebizindia/Innosmarti_Billing/_git/Innosmarti_Billing/commit/740805b). Apply that change on the Laravel side after reviewing the controller, route registrations, and middleware dependencies for your Laravel project.
+
+| XML setting | Laravel route | Purpose |
+| --- | --- | --- |
+| `healthUrl` | GET `/api/health` | Application and database health |
+| `mailHealthUrl` | GET `/api/health/mail` | SMTP connection and authentication |
+| `diagnosticsUrl` | GET `/api/health/diagnostics` | Cache, storage, queue and error checks |
+| `mailTestUrl` | POST `/api/health/mail-test` | Send a manually requested test email |
+| `logDownloadUrl` | GET `/api/health/logs-today` | Export filtered application logs |
+| `requestLogUrl` | GET `/api/health/request-log` | Read recorded request timings |
+
+Set the application's `backend="laravel"` and configure the full URLs for the checks you need. Request timings also use `app/Http/Middleware/MonitorRequestTiming.php` in the API middleware group and `config/monitor.php`. Verify route registration from the Laravel project with `php artisan route:list --path=api/health`.
+
+The Billing controller requires Laravel's local environment and a loopback connection. Use [Direct monitoring over SSH](#direct-monitoring-over-ssh) for supported remote database, SMTP and log diagnostics without installing these routes.
+
+
 ## Direct monitoring over SSH
 
 Set an application's **Direct SSH alias** in **Settings → Applications** to use the SSH probe for MySQL, SMTP and Laravel log errors. Laravel health URLs are bypassed in this mode. A Website URL still enables its separate website and certificate checks.
