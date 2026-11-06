@@ -1,5 +1,13 @@
 # Ubuntu server agent installation
 
+Download the [Ubuntu agent installer ZIP](ubuntu-server-agent.zip), extract it on the Ubuntu server, and run the installer from the extracted directory.
+
+```bash
+unzip ubuntu-server-agent.zip
+cd ubuntu-agent
+sudo bash install.sh
+```
+
 This package reports CPU, RAM, disk usage/free capacity and uptime. It performs no remote commands, service changes, database connections or application diagnostics. Run it on each Ubuntu host you want to monitor. A shared host needs only one agent; multiple brands and environments can link to it.
 
 ## 1. Install on Ubuntu
