@@ -73,7 +73,7 @@ Open **Settings → Servers → Add Ubuntu server**:
 
 Server checks follow the dashboard refresh interval while the dashboard is open; there is no independent scheduler or historical storage. A failed connection is unknown/unconfirmed, not a successful or measured critical CPU reading. Disabled servers make no agent requests. Application website/API checks run independently of this link.
 
-Tokens remain in the local watcher's `settings.json` and the agent's protected token file; settings responses and dashboard readings do not reveal them. Protect those files and their backups. A blank token field preserves the existing saved token. To rotate, replace the token file with a new random token of at least 32 characters, restart the agent, and enter the same new token in Settings. Tokens are not encrypted at rest by this version.
+Tokens remain in the local watcher's `config.xml` and the agent's protected token file; settings responses and dashboard readings do not reveal them. Protect those files and their backups. A blank token field preserves the existing saved token. To rotate, replace the token file with a new random token of at least 32 characters, restart the agent, and enter the same new token in Settings. Tokens are not encrypted at rest by this version.
 
 ## Maintenance
 

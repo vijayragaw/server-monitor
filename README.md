@@ -90,7 +90,7 @@ ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:5173:127.0.0.1:5173 ubuntu@YOUR_
 
 Open [Server Monitor through the tunnel](http://127.0.0.1:5173/), then use **Check now** and verify your configured monitors. This setup uses SSH for access and binds the dashboard to loopback. The app has no built-in user login.
 
-After manually editing XML, run `sudo systemctl restart server-monitor`. Use `sudo journalctl -u server-monitor -n 40 --no-pager` to diagnose startup errors. To collect remote host metrics, follow the [Ubuntu agent setup](ubuntu-agent/README.md).
+After manually editing XML, run `sudo systemctl restart server-monitor`. Use `sudo journalctl -u server-monitor -n 40 --no-pager` to diagnose startup errors. To collect remote host metrics, follow the [Ubuntu agent installation below](#install-the-ubuntu-metrics-agent).
 
 ## Brand and environment overview
 
@@ -142,15 +142,66 @@ Brand navigation now uses one Brand dropdown shared by the overview and Applicat
 
 Home is the default page and shows all brands across Production, UAT and Testing, summary counts, local watcher server readings, and current warning/danger findings. Select a brand/environment status to open that selection in Monitoring. Home and Monitoring share the same in-memory results and refresh controls. Use header navigation or #home / #monitoring; switching pages does not trigger a separate polling loop.
 
-## Ubuntu remote servers
+## Install the Ubuntu metrics agent
 
-Settings now includes a Servers tab with Ubuntu server name, agent URL, token, enable switch and Test connection. Link an app to its host using the Server selector in Applications. Home displays remote CPU/RAM/disk/free capacity/uptime in the Ubuntu servers table. All enabled agents are polled concurrently during dashboard refresh; local watcher metrics remain separate. The agent has no application/database/mail/service-control features.
+Install the agent on each Ubuntu host you want to monitor. Applications on the same host can share an agent. It reports CPU, RAM, disk space, and uptime. The installer uses Python 3.10 or newer and registers a systemd service.
 
-See ubuntu-agent/README.md for installation and SSH tunnel/VPN setup. The installer defaults to loopback and does not modify firewall rules. No remote server has been installed or connected automatically. Saved agent tokens are kept in the local settings file, redacted from settings API responses, and preserved when the token field is left blank. Protect settings files and backups.
+Download the [agent installer ZIP](https://github.com/vijayragaw/server-monitor/raw/refs/heads/main/ubuntu-agent/ubuntu-server-agent.zip). Copy it to the monitored Ubuntu host and run:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y unzip
+unzip ubuntu-server-agent.zip
+cd ubuntu-agent
+sudo bash install.sh
+sudo systemctl status server-monitor-agent --no-pager
+```
+
+If you cloned this repository on the monitored host, run the same installer from its `ubuntu-agent/` folder. The service listens on loopback port 8449 by default. The installer generates a token and preserves it and the environment settings on reinstall.
+
+### Connect the dashboard to the agent
+
+Run this command **on the machine running the Server Monitor Python backend**. Replace `YOUR_AGENT_HOST` and the SSH username. Keep the tunnel open.
+
+```bash
+ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:18449:127.0.0.1:8449 ubuntu@YOUR_AGENT_HOST
+```
+
+The Agent URL is `http://127.0.0.1:18449/v1/metrics`. Use a different local port for each agent tunnel.
+
+For a private VPN connection, set `MONITOR_BIND_HOST` to the agent host's VPN IP in `/etc/server-monitor-agent/agent.env`, restart the agent, and restrict TCP 8449 to the watcher host through the applicable firewalls. Use the agent's VPN address and port in the Agent URL.
+
+### Register and verify the agent
+
+On the monitored Ubuntu host, retrieve the token privately:
+
+```bash
+sudo cat /etc/server-monitor-agent/token
+```
+
+1. In Server Monitor, open **Settings → Servers → Add Ubuntu server**.
+2. Enter the agent URL and token, click **Test connection**, then **Save settings**.
+3. In **Settings → Applications**, link each relevant application to the server and save.
+4. Select **Check now** on Home and verify the agent readings.
+
+For manual configuration, add an enabled `<server>` entry to `config.xml` with a unique `id`, `name`, `kind="remote"`, `os="ubuntu"`, `agentUrl`, and `token`. Link applications using `serverId` and restart the dashboard service. Protect the watcher XML and the agent token file.
+
+### Maintain the agent
+
+```bash
+sudo journalctl -u server-monitor-agent -n 30 --no-pager
+sudo systemctl restart server-monitor-agent
+sudo systemctl disable --now server-monitor-agent
+```
+
+Set `MONITOR_DISK_PATH` in the agent environment file to monitor a different mount. Restart the agent after editing that file. To rotate a token, replace the agent token with a new random token of at least 32 characters, restart the agent, and update the watcher settings.
 
 ## Laravel controller and API routes
 
-Copy the files from the [Laravel integration folder](laravel/) using its [copy instructions](laravel/README.md).
+1. Copy the `app/` and `config/` files from the [Laravel integration folder](laravel/) into the matching folders of your Laravel app.
+2. Paste [the route snippet](laravel/routes/api-monitor.snippet.txt) into your existing `routes/api.php` after the imports and outside any route group. Adapt the Billing controller namespace and middleware references to match your app.
+3. For request timing, add `\App\Http\Middleware\MonitorRequestTiming::class,` to the API middleware group in `app/Http/Kernel.php`.
+4. Run `php artisan route:list --path=api/health` in the Laravel project to verify the routes.
 
 For Laravel HTTP monitoring, install `app/Http/Controllers/MonitorHealthController.php` and add the monitor routes to the Laravel application's `routes/api.php`. The Billing integration is available at [commit 740805b](https://dev.azure.com/mousebizindia/Innosmarti_Billing/_git/Innosmarti_Billing/commit/740805b). Apply that change on the Laravel side after reviewing the controller, route registrations, and middleware dependencies for your Laravel project.
 
