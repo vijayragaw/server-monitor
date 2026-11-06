@@ -1,0 +1,26 @@
+Route::match(['GET', 'POST'], 'health/mail-test', 'MonitorHealthController@mail')
+    ->middleware('throttle:6,1')
+    ->withoutMiddleware([\App\Http\Middleware\TimeZoneMiddleware::class, \App\Http\Middleware\AuditApiAccess::class, \App\Http\Middleware\RestrictInternalApi::class]);
+Route::get('health/logs-today', 'MonitorHealthController@logs')
+    ->withoutMiddleware([\App\Http\Middleware\TimeZoneMiddleware::class, \App\Http\Middleware\AuditApiAccess::class, \App\Http\Middleware\RestrictInternalApi::class]);
+Route::get('health/request-log', 'MonitorHealthController@requestLog')
+    ->withoutMiddleware([\App\Http\Middleware\TimeZoneMiddleware::class, \App\Http\Middleware\AuditApiAccess::class, \App\Http\Middleware\RestrictInternalApi::class]);
+// Local monitoring probe: no application data or credentials are returned.
+Route::get('health/diagnostics', 'MonitorHealthController@diagnostics')
+    ->withoutMiddleware([
+        \App\Http\Middleware\TimeZoneMiddleware::class,
+        \App\Http\Middleware\AuditApiAccess::class,
+        \App\Http\Middleware\RestrictInternalApi::class,
+    ]);
+Route::get('health/mail', 'MonitorHealthController@mail')
+    ->withoutMiddleware([
+        \App\Http\Middleware\TimeZoneMiddleware::class,
+        \App\Http\Middleware\AuditApiAccess::class,
+        \App\Http\Middleware\RestrictInternalApi::class,
+    ]);
+Route::get('health', 'MonitorHealthController@show')
+    ->withoutMiddleware([
+        \App\Http\Middleware\TimeZoneMiddleware::class,
+        \App\Http\Middleware\AuditApiAccess::class,
+        \App\Http\Middleware\RestrictInternalApi::class,
+    ]);

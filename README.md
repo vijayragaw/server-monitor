@@ -150,6 +150,8 @@ See ubuntu-agent/README.md for installation and SSH tunnel/VPN setup. The instal
 
 ## Laravel controller and API routes
 
+Copy the files from the [Laravel integration folder](laravel/) using its [copy instructions](laravel/README.md).
+
 For Laravel HTTP monitoring, install `app/Http/Controllers/MonitorHealthController.php` and add the monitor routes to the Laravel application's `routes/api.php`. The Billing integration is available at [commit 740805b](https://dev.azure.com/mousebizindia/Innosmarti_Billing/_git/Innosmarti_Billing/commit/740805b). Apply that change on the Laravel side after reviewing the controller, route registrations, and middleware dependencies for your Laravel project.
 
 | XML setting | Laravel route | Purpose |
