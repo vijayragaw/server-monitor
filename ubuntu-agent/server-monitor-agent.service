@@ -1,0 +1,32 @@
+[Unit]
+Description=Server Monitor read-only metrics agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=server-monitor-agent
+Group=server-monitor-agent
+WorkingDirectory=/opt/server-monitor-agent
+EnvironmentFile=/etc/server-monitor-agent/agent.env
+Environment=MONITOR_TOKEN_FILE=/etc/server-monitor-agent/token
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/server-monitor-agent/.venv/bin/python -m uvicorn agent:create_app --factory --host ${MONITOR_BIND_HOST} --port ${MONITOR_PORT} --workers 1 --no-access-log
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

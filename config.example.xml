@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<monitor version="1" intervalSeconds="30" localMetrics="true" diskPath="/">
+  <dashboard refreshSeconds="0" tableView="false" issuesOnly="false" showCharts="true" notifications="true" />
+  <!-- Replace the example URL and enable this app to run checks. -->
+  <app id="example-app" name="Example application" brand="Example" environment="testing"
+       backend="http" siteUrl="https://example.invalid/" enabled="false" />
+</monitor>

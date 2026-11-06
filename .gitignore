@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+
+.venv/
+__pycache__/
+.pytest_cache/
+
+# Host-specific settings and local work
+/config.xml
+/settings.json
+/work/
